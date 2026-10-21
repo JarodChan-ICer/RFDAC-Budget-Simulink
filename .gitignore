@@ -1,0 +1,6 @@
+/outputs/
+/archive/
+/slprj/
+/MathWorks/
+*.slxc
+*.asv
