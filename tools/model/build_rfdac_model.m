@@ -4,6 +4,12 @@ function build_rfdac_model(cfg)
 paths=setup_rfdac_project();
 if nargin<1, cfg=init_rfdac_model(); end
 [p,cfg]=rfdac_prepare(cfg);
+requestedCfg=cfg;
+if strcmp(p.DPD.Algorithm,'lut') && isempty(p.DPD.LUT.Training_Output)
+    % Model construction compiles intermediate schemas. Train only after the
+    % complete model exists, never recursively from an InitFcn compilation.
+    cfg.DPD_Enable=false; [p,cfg]=rfdac_prepare(cfg);
+end
 assignin('base','cfg',cfg); assignin('base','p',p);
 m=cfg.Model_Name;
 if bdIsLoaded(m), close_system(m,0); end
@@ -21,7 +27,7 @@ s=sub(m,'QAM Source',[50 130 225 250]);
 blk('Sources/From Workspace',s,'Random codewords',[25 50 155 85], ...
     'VariableName','p.Symbol_Data','SampleTime','p.Frame_Period','Interpolate','off','OutputAfterFinalValue','Holding final value');
 blk('User-Defined Functions/Level-2 MATLAB S-Function',s,'Gray QAM mapper',[200 40 350 95], ...
-    'FunctionName','rfdac_qam_map','Parameters','cfg.QAM_Order');
+    'FunctionName','rfdac_qam_map','Parameters','p.Source_Constellation');
 blk('Sources/Constant',s,'Impulse and amplitude',[200 145 350 180],'Value','p.TX_Impulse');
 blk('Math Operations/Product',s,'Symbol upsampling',[395 65 430 115]);
 fir(s,'TX RRC pulse shaping',[480 65 640 115],'p.RRC');
@@ -151,9 +157,12 @@ set_param(m,'ZoomFactor','85');
 % Give intermediate schema upgrades an absolute save target, even from another cwd.
 save_system(m,fullfile(paths.Root,[m '.slx']));
 update_rfdac_evm_model(m);
+update_rfdac_rx_equalizer_model(m);
 update_rfdac_dpd_model(m);
 save_system(m,fullfile(paths.Root,[m '.slx']));
 fprintf('Built %s.slx\n',m);
+[p,cfg]=rfdac_prepare(requestedCfg);
+assignin('base','cfg',cfg); assignin('base','p',p);
 end
 
 function make_dac(m,name,pos,suffix)

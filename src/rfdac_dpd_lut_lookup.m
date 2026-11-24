@@ -1,22 +1,31 @@
-function [v,limited]=rfdac_dpd_lut_lookup(u,d)
-% Actual LUT runtime: index/interpolate stored words, add to original input.
+function [v,limited,index]=rfdac_dpd_lut_lookup(u,d)
+% Select one trained absolute drive. No interpolation, addition or inverse.
 lut=d.LUT;
-x=(real(u)/d.LSB-lut.First_Code(1))/lut.Code_Step(1)+1;
-y=(imag(u)/d.LSB-lut.First_Code(2))/lut.Code_Step(2)+1;
-x=min(max(x,1),lut.Size(1)); y=min(max(y,1),lut.Size(2));
-if strcmp(lut.Interpolation,'nearest')
-    ix=round(x); iy=round(y); idx=ix+(iy-1)*lut.Size(1);
-    di=double(lut.Delta_I(idx)); dq=double(lut.Delta_Q(idx));
-    limited=lut.Gain_Limited(idx);
-else
-    ix=floor(x); iy=floor(y); fx=x-ix; fy=y-iy;
-    jx=min(ix+1,lut.Size(1)); jy=min(iy+1,lut.Size(2));
-    a=ix+(iy-1)*lut.Size(1); b=jx+(iy-1)*lut.Size(1);
-    cc=ix+(jy-1)*lut.Size(1); e=jx+(jy-1)*lut.Size(1);
-    wa=(1-fx).*(1-fy); wb=fx.*(1-fy); wc=(1-fx).*fy; we=fx.*fy;
-    di=wa.*double(lut.Delta_I(a))+wb.*double(lut.Delta_I(b))+wc.*double(lut.Delta_I(cc))+we.*double(lut.Delta_I(e));
-    dq=wa.*double(lut.Delta_Q(a))+wb.*double(lut.Delta_Q(b))+wc.*double(lut.Delta_Q(cc))+we.*double(lut.Delta_Q(e));
-    limited=(wa.*lut.Gain_Limited(a)+wb.*lut.Gain_Limited(b)+wc.*lut.Gain_Limited(cc)+we.*lut.Gain_Limited(e))>0;
+if isfield(lut,'Format') && strcmp(lut.Format,'ppt_runtime_direct_map_v1')
+    ci=min(max(round(real(u)/d.LSB),d.Min_Code),d.Max_Code)-lut.Input_First_Code+1;
+    cq=min(max(round(imag(u)/d.LSB),d.Min_Code),d.Max_Code)-lut.Input_First_Code+1;
+    address=ci+lut.Input_Axis_Points*(cq-1);
+    ic=double(lut.Direct_I(address)); qc=double(lut.Direct_Q(address));
+    v=complex(ic,qc)*d.LSB; limited=lut.Outside_Observed_Hull(address);
+    index=(ic-lut.Dense_First_I+1)+lut.Dense_I_Points*(qc-lut.Dense_First_Q);
+    return;
 end
-v=u+complex(di,dq)*(d.LSB/2^lut.Fraction_Bits);
+if isfield(lut,'Format') && strcmp(lut.Format,'ppt_measured_2d_lut_v1')
+    assert(isfield(lut,'Inverse_Index'),'rfdac:LUTTrainingRequired','Complete the serpentine training capture first.');
+    ci=min(max(round(real(u)/d.LSB),d.Min_Code),d.Max_Code)-lut.Input_First_Code+1;
+    cq=min(max(round(imag(u)/d.LSB),d.Min_Code),d.Max_Code)-lut.Input_First_Code+1;
+    address=ci+lut.Input_Axis_Points*(cq-1);
+    index=double(lut.Inverse_Index(address));
+    v=complex(double(lut.Output_I(index)),double(lut.Output_Q(index)))*d.LSB;
+    limited=lut.Outside_Observed_Hull(address);
+    return;
+end
+assert(isfield(lut,'Format') && strcmp(lut.Format,'trained_absolute_codebook_v1'), ...
+    'rfdac:LegacyLUT','Regenerate this LUT: saved correction tables are not finite training alphabets.');
+if isempty(u), v=u; limited=false(size(u)); index=zeros(size(u)); return; end
+nearest=dsearchn(lut.Search_Points,lut.Search_Triangles,[real(u(:)) imag(u(:))]);
+index=double(lut.Search_Codebook_Indices(nearest));
+index=reshape(index,size(u));
+v=complex(double(lut.Output_I(index)),double(lut.Output_Q(index)))*d.LSB;
+limited=false(size(u));
 end

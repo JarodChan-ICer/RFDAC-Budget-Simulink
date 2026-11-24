@@ -1,6 +1,6 @@
 function report=rfdac_lut_select_precision(report)
 % Recommend minimum payload among measured candidates meeting EVM penalty.
-defaults=init_rfdac_model();
+defaults=rfdac_default_config();
 if ~isfield(report.Config,'DPD_LUT_Max_Penalty_dB')
     report.Config.DPD_LUT_Max_Penalty_dB=defaults.DPD_LUT_Max_Penalty_dB;
 end

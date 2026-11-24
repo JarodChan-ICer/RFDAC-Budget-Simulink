@@ -1,9 +1,9 @@
 function update_rfdac_dpd_model(m)
-% Insert one digital I/Q DPD subsystem between pulse shaping and both DACs.
+% Insert digital I/Q DPD after TX RRC pulse shaping and before the DACs.
 if nargin<1, c=init_rfdac_model(); m=c.Model_Name; end
 load_system(m); s=[m '/Digital Predistortion'];
-if getSimulinkBlockHandle(s)>0 && strcmp(get_param(s,'Tag'),'rfdac_dpd_v3'), return; end
-if getSimulinkBlockHandle(s)>0 && strcmp(get_param(s,'Tag'),'rfdac_dpd_v2')
+if getSimulinkBlockHandle(s)>0 && strcmp(get_param(s,'Tag'),'rfdac_dpd_v7'), return; end
+if getSimulinkBlockHandle(s)>0 && ismember(get_param(s,'Tag'),{'rfdac_dpd_v2','rfdac_dpd_v3','rfdac_dpd_v4','rfdac_dpd_v5','rfdac_dpd_v6'})
     finish(s); save_system(m); return;
 end
 fresh=getSimulinkBlockHandle(s)<0;
@@ -68,17 +68,31 @@ finish(s); set_param(m,'ZoomFactor','75');
 save_system(m); fprintf('Updated DPD: signed N-bit input/output codewords, original analog plant retained.\n');
 end
 function finish(s)
+m=bdroot(s); source=[m '/QAM Source'];
+rfdac_upgrade_ppt_source(m);
+set_param([source '/Gray QAM mapper'],'Parameters','p.Source_Constellation');
+reference=[source '/Reference QAM mapper'];
+if getSimulinkBlockHandle(reference)<0
+    add('User-Defined Functions/Level-2 MATLAB S-Function',source,'Reference QAM mapper', ...
+        [200 225 350 270],'FunctionName','rfdac_qam_map','Parameters','p.Constellation');
+    ports=get_param([source '/Reference symbol'],'PortHandles');
+    line=get_param(ports.Inport(1),'Line'); if line>0, delete_line(line); end
+    wire(source,'Random codewords/1','Reference QAM mapper/1');
+    wire(source,'Reference QAM mapper/1','Reference symbol/1');
+end
 old=[s '/Envelope inverse then IQ inverse'];
 if getSimulinkBlockHandle(old)>0, set_param(old,'Name','Selected DPD algorithm'); end
+set_param([s '/Selected DPD algorithm'],'Parameters','p.DPD_Runtime,p.DAC_Samples_Per_Symbol');
 aa=find_system(s,'SearchDepth',1,'FindAll','on','Type','annotation');
 for k=1:numel(aa), delete(get_param(aa(k),'Object')); end
-a=Simulink.Annotation(s,sprintf(['N-bit input words -> selected digital algorithm -> N-bit output round/saturate.\n' ...
-    'cfg.DPD_Algorithm: lut (actual 2-D correction lookup) or analytic (reference).\n' ...
-    'cfg.DPD_LUT_* selects total entries / address bits, stored word precision and interpolation.\n' ...
-    'LUT generation uses the known static model; runtime only reads stored corrections.\n' ...
+a=Simulink.Annotation(s,sprintf(['TX RRC -> N-bit desired waveform a -> nearest measured/interpolated output b -> paired input c.\n' ...
+    'LINK LUT follows the chip-test PPT: zero-prefixed snake -> actual RF -> frame/phase alignment.\n' ...
+    'Interpolate measured forward responses to the legal DAC grid; precompute exact nearest inverse.\n' ...
+    'DPD acts on EVERY DAC-rate baseband sample after TX RRC, not on QAM symbols.\n' ...
+    'Raw snake bypasses TX RRC only during training. Business TX/RX RRC remain active.\n' ...
     'Original analog TX / LO impairments remain active. No instantaneous jitter is used.']));
 a.Position=[20 730 1050 865]; a.FontSize=11;
-set_param(s,'Tag','rfdac_dpd_v3');
+set_param(s,'Tag','rfdac_dpd_v7');
 end
 function add(lib,s,name,pos,varargin)
 add_block(['simulink/' lib],[s '/' name],'Position',pos,varargin{:});

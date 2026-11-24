@@ -19,6 +19,11 @@ function output(b)
 if b.InputPort(1).Data<0
     b.OutputPort(1).Data=complex(0);
 else
-    b.OutputPort(1).Data=qammod(b.InputPort(1).Data,b.DialogPrm(1).Data,'gray','UnitAveragePower',true);
+    table=b.DialogPrm(1).Data;
+    if isscalar(table) % older saved SLX compatibility
+        b.OutputPort(1).Data=qammod(b.InputPort(1).Data,table,'gray','UnitAveragePower',true);
+    else
+        b.OutputPort(1).Data=table(b.InputPort(1).Data+1);
+    end
 end
 end

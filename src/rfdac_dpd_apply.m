@@ -2,7 +2,11 @@ function [v,stats]=rfdac_dpd_apply(u,d)
 % Predistort desired complex envelope at the DAC sample rate.
 % atan RF fundamental: F(A)=2*A/(1+sqrt(1+beta*A^2)).
 % Its envelope inverse is A=R/(1-beta*R^2/4). Invert IQ AFTER this.
-if isfield(d,'Algorithm') && strcmp(d.Algorithm,'lut') && (d.IQ_Enable || d.Nonlinearity_Enable)
+if isfield(d,'Placement') && strcmp(d.Placement,'symbol_before_rrc')
+    % The measured constellation LUT already selected the source symbols.
+    % This sample-rate stage only formats the shaped waveform for the DAC.
+    v=u; limited=false(size(u));
+elseif isfield(d,'Algorithm') && strcmp(d.Algorithm,'lut') && (d.IQ_Enable || d.Nonlinearity_Enable)
     [v,limited]=rfdac_dpd_lut_lookup(u,d);
 else
     [v,limited]=rfdac_dpd_analytic(u,d);

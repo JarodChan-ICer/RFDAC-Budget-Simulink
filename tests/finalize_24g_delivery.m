@@ -10,6 +10,9 @@ for k=[2 7]
     plot_rfdac_results(saved.results);
 end
 cfg=init_rfdac_model(); cfg.Num_Symbols=128;
+cfg.LO_Frequency=24e9; cfg.RX_LO_Frequency=[]; cfg.TX_Target_EVM_dB=-43;
+cfg.LO_Quadrature_Error_Deg=1; cfg.LO_Differential_Phase_Error_Deg=0;
+cfg.LO_Quadrature_Amplitude_Mismatch=0;
 cfg.Make_Plots=false; cfg.Save_Results=false;
 cfg.Model_Name='rfdac_evm_build_verification';
 path=fullfile(root,[cfg.Model_Name '.slx']);

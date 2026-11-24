@@ -42,6 +42,7 @@ end
 r.cfg.Output_Directory=fullfile(c.Output_Directory,'plot_switch_checks');
 fields={'Plot_Constellation','Plot_LPF_Response','Plot_Waveforms','Plot_Spectra','Plot_Diagnostics'};
 suffix={'dpd_before_after_constellation','lpf_response','waveforms','spectra','diagnostics'};
+r.cfg.Plot_DPD_LUT_Selection=false;
 for a=1:numel(fields), r.cfg.(fields{a})=false; end
 f=plot_rfdac_results(r); assert(isempty(f),'Disabled flags created a figure.');
 for a=1:numel(fields)
@@ -50,6 +51,13 @@ for a=1:numel(fields)
     assert(isfile(fullfile(r.cfg.Output_Directory,[r.cfg.Run_Tag '_' suffix{a} '.png'])));
     close(f); r.cfg.(fields{a})=false;
 end
+r.cfg.Plot_Constellation=true; r.cfg.Plot_DPD_LUT_Selection=true;
+f=plot_rfdac_results(r);
+assert(isscalar(f) && numel(findall(f,'Type','axes'))==3 && ...
+    numel(findall(f,'Tag','rfdac_selected_lut_overlay'))==1 && ...
+    numel(findall(f,'Tag','rfdac_lut_training_axes'))==1, ...
+    'Expected two RX panels above one centered training RF-output panel.');
+close(f);
 r.cfg.Make_Plots=false; r.cfg.Plot_Waveforms=true;
 assert(isempty(plot_rfdac_results(r)),'Make_Plots master switch failed.');
 

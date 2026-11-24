@@ -3,6 +3,7 @@ function report=evaluate_24g_tx_budget()
 c=init_rfdac_model(); c.LO_Frequency=24e9; c.RX_LO_Frequency=[];
 c.DPD_Enable=false; % original impairment budget is intentionally uncorrected
 c.TX_Target_EVM_dB=-43; c.LO_Quadrature_Error_Deg=1;
+c.LO_Differential_Phase_Error_Deg=0; c.LO_Quadrature_Amplitude_Mismatch=0;
 paths=setup_rfdac_project(); c.Output_Directory=fullfile(paths.Validation,'tx_evm_24g');
 c.Figure_Visible='off'; c.Make_Plots=false; c.Save_Results=false;
 if ~isfolder(c.Output_Directory), mkdir(c.Output_Directory); end

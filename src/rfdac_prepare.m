@@ -1,24 +1,32 @@
 function [p,cfg] = rfdac_prepare(cfg)
 %RFDAC_PREPARE Validate configuration and prepare reproducible frame stimuli.
 required = {'Simulink','Signal_Toolbox','Communication_Toolbox','Signal_Blocks'};
-defaults=init_rfdac_model();
+defaults=rfdac_default_config();
 newfields={'TX_Nonlinearity_Enable','TX_Target_EVM_dB','TX_Nonlinearity_Beta', ...
     'TX_EVM_Fit_Tolerance_dB','LO_Quadrature_Error_Enable', ...
-    'LO_Quadrature_Error_Deg','LO_Phase_Errors_Deg','Waveform_Log_Frames', ...
+    'LO_Quadrature_Error_Deg','LO_Differential_Phase_Error_Deg', ...
+    'LO_Quadrature_Amplitude_Mismatch','LO_Phase_Errors_Deg','Waveform_Log_Frames', ...
     'DPD_Enable','DPD_IQ_Enable','DPD_Nonlinearity_Enable','DPD_TX_Beta_Estimate', ...
     'DPD_Quadrature_Estimate_Deg','DPD_Phase_Errors_Estimate_Deg','DPD_Max_Gain', ...
-    'Plot_Constellation','Plot_DPD_Comparison','Plot_LPF_Response', ...
+    'Plot_Constellation','Plot_DPD_Comparison','Plot_DPD_LUT_Selection','Plot_LPF_Response', ...
     'Plot_Waveforms','Plot_Spectra','Plot_Diagnostics', ...
-    'DPD_Algorithm','DPD_LUT_Size_Mode','DPD_LUT_Points','DPD_LUT_Address_Bits', ...
+    'DPD_Algorithm','DPD_LUT_Size_Mode','DPD_LUT_Training_Order','DPD_LUT_Training_Observed', ...
+    'DPD_LUT_Points','DPD_LUT_Address_Bits', ...
     'DPD_LUT_Points_Per_QAM_Symbol','DPD_LUT_Value_Bits','DPD_LUT_Fraction_Bits', ...
-    'DPD_LUT_Interpolation','DPD_LUT_Max_Penalty_dB'};
+    'DPD_LUT_Interpolation','DPD_LUT_Max_Penalty_dB','RRC_Rolloff','RRC_Span', ...
+    'DPD_LUT_Training_Mode','DPD_LUT_Training_Repeats','DPD_LUT_Training_Seed', ...
+    'DPD_LUT_Drive_Range','DPD_LUT_Training_Metadata','DPD_LUT_Capture', ...
+    'DPD_LUT_Training_Dwell_Samples','DPD_LUT_Training_Prefix_Zeros', ...
+    'RX_Equalizer_Enable','RX_Equalizer_Order','RX_Equalizer_Max_Boost_dB', ...
+    'RX_Equalizer_Regularization'};
 for k=1:numel(newfields)
     if ~isfield(cfg,newfields{k}), cfg.(newfields{k})=defaults.(newfields{k}); end
 end
 for k=1:numel(required)
     assert(license('test',required{k}), 'RF DAC requires license: %s',required{k});
 end
-assert(ismember(cfg.QAM_Order,[16 64 256 1024 4096]),'Unsupported QAM order.');
+assert(ismember(cfg.QAM_Order,[16 64 256 1024 4096]) || ...
+    (~isempty(cfg.DPD_LUT_Capture) && cfg.QAM_Order<=2^20), 'Unsupported QAM order.');
 positive = {'LO_Frequency','Sample_Rate','DAC_Sample_Rate','Symbol_Rate', ...
     'DAC_Full_Scale','Input_Amplitude'};
 validateattributes(cfg.RRC_Rolloff,{'numeric'},{'scalar','>',0,'<=',1});
@@ -36,6 +44,9 @@ validateattributes(cfg.LO_RMS_Jitter,{'numeric'},{'scalar','finite','nonnegative
 validateattributes(cfg.TX_Target_EVM_dB,{'numeric'},{'scalar','real','finite','<',0});
 validateattributes(cfg.TX_EVM_Fit_Tolerance_dB,{'numeric'},{'scalar','positive','finite'});
 validateattributes(cfg.LO_Quadrature_Error_Deg,{'numeric'},{'scalar','real','finite'});
+validateattributes(cfg.LO_Differential_Phase_Error_Deg,{'numeric'},{'scalar','real','finite'});
+validateattributes(cfg.LO_Quadrature_Amplitude_Mismatch,{'numeric'},{'scalar','real','finite','>',-1});
+validateattributes(cfg.LO_Quadrature_Error_Enable,{'logical','numeric'},{'scalar','binary'});
 validateattributes(cfg.LO_Phase_Errors_Deg,{'numeric'},{'vector','numel',4,'real','finite'});
 validateattributes(cfg.Waveform_Log_Frames,{'numeric'},{'scalar','positive'});
 assert(isinf(cfg.Waveform_Log_Frames) || cfg.Waveform_Log_Frames==floor(cfg.Waveform_Log_Frames), ...
@@ -66,6 +77,7 @@ assert(mod(p.Samples_Per_Symbol,p.DAC_Hold)==0,'A symbol must contain whole DAC 
 assert(cfg.Baseband_Frequency<cfg.DAC_Sample_Rate,'Signal exceeds DAC Nyquist frequency.');
 p.TX_FIR=make_fir(cfg.LPF_Order,cfg.LPF_Cutoff,cfg.Sample_Rate);
 p.RX_FIR=make_fir(cfg.RX_LPF_Order,cfg.RX_LPF_Cutoff,cfg.Sample_Rate);
+[p.RX_Equalizer_FIR,p.RX_Equalizer]=rfdac_fit_rx_equalizer(cfg,p);
 assert(cfg.LPF_Transition_Bandwidth>0 && ...
     cfg.LPF_Cutoff-cfg.LPF_Transition_Bandwidth/2>=cfg.Baseband_Frequency/2, ...
     'Requested passband must include half the TOTAL baseband bandwidth.');
@@ -75,7 +87,8 @@ p.RRC=rcosdesign(cfg.RRC_Rolloff,cfg.RRC_Span,p.DAC_Samples_Per_Symbol,'sqrt');
 p.TX_Impulse=[sqrt(p.DAC_Samples_Per_Symbol)*cfg.Input_Amplitude; zeros(p.DAC_Samples_Per_Symbol-1,1)];
 p.RX_RRC=p.RRC/sqrt(p.DAC_Samples_Per_Symbol);
 p.Uncorrected_Delay=cfg.RRC_Span*p.DAC_Samples_Per_Symbol+ ...
-    (cfg.LPF_Order+cfg.RX_LPF_Order)/(2*p.DAC_Hold)+(p.DAC_Hold-1)/(2*p.DAC_Hold);
+    (cfg.LPF_Order+cfg.RX_LPF_Order)/(2*p.DAC_Hold)+(p.DAC_Hold-1)/(2*p.DAC_Hold)+ ...
+    p.RX_Equalizer.Delay_DAC_Samples;
 % Cubic Lagrange fractional delay adds 1..2 DAC samples for integer timing.
 target=ceil(p.Uncorrected_Delay)+1;
 frac=target-p.Uncorrected_Delay;
@@ -98,14 +111,44 @@ p.RX_Decimation_Indices=(1:p.DAC_Hold:p.Samples_Per_Symbol)';
 p.Constellation=qammod((0:cfg.QAM_Order-1)',cfg.QAM_Order,'gray','UnitAveragePower',true);
 stream=RandStream('mt19937ar','Seed',cfg.Random_Seed);
 p.Symbol_IDs=randi(stream,cfg.QAM_Order,cfg.Num_Symbols,1)-1;
+if ~isempty(cfg.DPD_LUT_Capture)
+    assert(~cfg.DPD_Enable,'rfdac:TrainingFeedback','Training capture must have DPD disabled.');
+    if ~isfield(cfg.DPD_LUT_Capture,'Mode') % previous saved symbol-capture compatibility
+        p.Constellation=cfg.DPD_LUT_Capture.Drive(:)/cfg.Input_Amplitude;
+        p.Symbol_IDs=cfg.DPD_LUT_Capture.IDs(:);
+        assert(numel(p.Symbol_IDs)==cfg.Num_Symbols && ...
+            all(p.Symbol_IDs>=0 & p.Symbol_IDs<numel(p.Constellation)));
+    end
+end
 p.Reference=p.Constellation(p.Symbol_IDs+1);
+p.Source_Constellation=p.Constellation;
+p.Raw_Training_Enable=false;
+p.Raw_DAC_Data.time=[0;p.Frame_Period];
+p.Raw_DAC_Data.signals.values=complex(zeros(p.DAC_Samples_Per_Symbol,1,2));
+p.Raw_DAC_Data.signals.dimensions=[p.DAC_Samples_Per_Symbol 1];
+p.Observation_Log_Frames=cfg.Waveform_Log_Frames;
+if ~isempty(cfg.DPD_LUT_Capture) && isfield(cfg.DPD_LUT_Capture,'Mode')
+    assert(strcmp(cfg.DPD_LUT_Capture.Mode,'raw_serpentine'));
+    p.Raw_Training_Enable=true; raw=cfg.DPD_LUT_Capture.Samples(:);
+    assert(numel(raw)<=p.Num_Frames*p.DAC_Samples_Per_Symbol);
+    raw(end+1:p.Num_Frames*p.DAC_Samples_Per_Symbol)=0;
+    p.Raw_DAC_Data.time=(0:p.Num_Frames-1)'*p.Frame_Period;
+    p.Raw_DAC_Data.signals.values=reshape(raw,p.DAC_Samples_Per_Symbol,1,p.Num_Frames);
+    p.Observation_Log_Frames=inf;
+end
 p.Num_RF_Samples=p.Samples_Per_Symbol*p.Num_Frames;
 p.Symbol_Data.time=(0:p.Num_Frames-1)'*p.Frame_Period;
 p.Symbol_Data.signals.values=[p.Symbol_IDs; -ones(p.Num_Frames-cfg.Num_Symbols,1)];
 p.Symbol_Data.signals.dimensions=1;
 p.Linear_Gain=cfg.Input_Amplitude;
-p.LO_Phase_Offsets=pi/180*([0 90 180 270]+double(cfg.LO_Quadrature_Error_Enable)* ...
-    ([0 cfg.LO_Quadrature_Error_Deg 0 cfg.LO_Quadrature_Error_Deg]+reshape(cfg.LO_Phase_Errors_Deg,1,4)));
+loMismatchEnabled=double(cfg.LO_Quadrature_Error_Enable);
+quadraturePhase=cfg.LO_Quadrature_Error_Deg;
+differentialPhase=cfg.LO_Differential_Phase_Error_Deg;
+quadratureAmplitude=cfg.LO_Quadrature_Amplitude_Mismatch;
+phaseMismatch=[0 quadraturePhase differentialPhase quadraturePhase+differentialPhase];
+p.LO_Phase_Offsets=pi/180*([0 90 180 270]+loMismatchEnabled* ...
+    (phaseMismatch+reshape(cfg.LO_Phase_Errors_Deg,1,4)));
+p.LO_Leg_Amplitudes=1+loMismatchEnabled*[0 quadratureAmplitude 0 quadratureAmplitude];
 if cfg.TX_Nonlinearity_Enable
     if isempty(cfg.TX_Nonlinearity_Beta)
         [p.TX_Beta,p.TX_Calibration]=rfdac_fit_tx_evm(cfg,p);
@@ -122,6 +165,24 @@ else
 end
 p.TX_K=max(sqrt(p.TX_Beta),eps);
 p.DPD=rfdac_prepare_dpd(cfg,p);
+if strcmp(p.DPD.Algorithm,'lut') && strcmp(cfg.DPD_LUT_Training_Mode,'link')
+    p.DPD.Placement='waveform_after_rrc';
+end
+p.DPD_Runtime=p.DPD;
+if strcmp(p.DPD.Algorithm,'lut') && strcmp(cfg.DPD_LUT_Training_Mode,'link') && ...
+        isfield(p.DPD.LUT,'Inverse_Index')
+    l=p.DPD.LUT;
+    % The S-function needs only the frozen hardware word map. Measured RF,
+    % interpolated responses and search metadata never cross its frame port.
+    runtime=struct('Format','ppt_runtime_direct_map_v1', ...
+        'Direct_I',int16(l.Output_I(l.Inverse_Index)), ...
+        'Direct_Q',int16(l.Output_Q(l.Inverse_Index)), ...
+        'Outside_Observed_Hull',l.Outside_Observed_Hull, ...
+        'Input_First_Code',l.Input_First_Code,'Input_Axis_Points',l.Input_Axis_Points, ...
+        'Dense_First_I',double(l.Output_I(1,1)),'Dense_First_Q',double(l.Output_Q(1,1)), ...
+        'Dense_I_Points',l.Size(1));
+    p.DPD_Runtime.LUT=runtime;
+end
 p.Filter_Frequency=linspace(0,cfg.Sample_Rate/2,32769)';
 p.Filter_Response=freqz(p.TX_FIR,1,p.Filter_Frequency,cfg.Sample_Rate);
 pb=p.Filter_Frequency<=cfg.LPF_Cutoff-cfg.LPF_Transition_Bandwidth/2;

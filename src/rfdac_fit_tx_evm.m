@@ -6,7 +6,8 @@ persistent cacheKey cacheBeta cacheInfo
 fields={'LO_Frequency','Sample_Rate','DAC_Sample_Rate','Symbol_Rate','RRC_Rolloff', ...
     'RRC_Span','QAM_Order','DAC_Bits','DAC_Full_Scale','Input_Amplitude','Num_Symbols', ...
     'LPF_Cutoff','LPF_Order','RX_LPF_Cutoff','RX_LPF_Order','Random_Seed', ...
-    'TX_Target_EVM_dB','TX_EVM_Fit_Tolerance_dB'};
+    'TX_Target_EVM_dB','TX_EVM_Fit_Tolerance_dB','RX_Equalizer_Enable', ...
+    'RX_Equalizer_Order','RX_Equalizer_Max_Boost_dB','RX_Equalizer_Regularization'};
 key=cellfun(@(f)c.(f),fields,'UniformOutput',false);
 if isequal(key,cacheKey), beta=cacheBeta; info=cacheInfo; return; end
 fprintf('Fitting clean TX EVM to %.3f dB using %d symbols...\n',c.TX_Target_EVM_dB,c.Num_Symbols);
@@ -51,6 +52,7 @@ fprintf('TX fit: beta %.9g V^-2, clean EVM %.6f dB; linear floor %.3f dB.\n',bet
         down=2*v.*conj(carrier); clear v;
         y=fftfilt(p.RX_FIR,down); clear down;
         y=y(1:p.DAC_Hold:end);
+        y=filter(p.RX_Equalizer_FIR,1,y);
         y=filter(p.RX_RRC,1,y);
         y=filter(p.Fractional_FIR,1,y);
         y=y(p.Total_Delay+1:L:p.Total_Delay+1+(c.Num_Symbols-1)*L);

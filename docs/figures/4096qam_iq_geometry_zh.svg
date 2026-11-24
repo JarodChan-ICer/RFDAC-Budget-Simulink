@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1340" height="680" viewBox="0 0 1340 680" role="img" aria-labelledby="title desc">
+<title id="title">4096-QAM：1.5° 残余正交误差，离判错还有多远？</title>
+<desc id="desc">两幅定量轴图取同一角点 (63a,63a)。幅差校正后 I 轴投影为 62.175a。Q 路仍高 10% 时 I 轴投影为 59.177a，越过两道门限。</desc>
+<style>text{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;fill:#18394c}.title{font-size:38px;font-weight:bold}.section{font-size:24px;font-weight:bold}.label{font-size:19px;font-weight:bold}.body{font-size:17px}.small{font-size:15px}.muted{fill:#40586b}.teal{fill:#007a70}.red{fill:#b13d23}.white{fill:white}.mid{text-anchor:middle}.path{stroke:#203f54;stroke-width:3}.q{stroke:#007a70;stroke-width:4}.dash{stroke:#698091;stroke-width:2;stroke-dasharray:6 5;fill:none}.ref{stroke:#23465b;stroke-width:3;fill:white}.obs{fill:#ca4b2c;stroke:white;stroke-width:2}</style>
+<rect width="1340" height="680" fill="#f4f7f8"/>
+<text x="40" y="58" class="title">4096-QAM：1.5° 残余正交误差，离判错还有多远？</text>
+<text x="42" y="94" class="body muted">四相 LO　｜　ΔD = 0°　｜　硬件 Q 路幅度 1 + ΔA = 1.10　｜　相邻星座点中心距 = 2a</text>
+<rect x="34" y="121" width="487" height="460" rx="14" fill="white" stroke="#d3dee3"/>
+<text x="57" y="162" class="section">①　正交失配怎样扭斜星座？</text>
+<text x="152" y="209" class="label mid">理想基矢</text><text x="386" y="209" class="label mid">实际基矢</text>
+<path d="M95 350V235H210V350Z" class="path" fill="#eff4f6"/><path d="M95 350V235" class="q"/><text x="82" y="301" text-anchor="end" class="body teal">1</text><text x="152.5" y="377" class="body mid">1</text>
+<path d="M350 350L316 228H431L465 350Z" class="path" fill="#e9f5f2"/><path d="M350 350L316 228" class="q"/><path d="M350 346V224" class="dash"/>
+<path d="M350 276 A74 74 0 0 0 330.1 278.7 M340 276L371 254" fill="none" stroke="#b13d23" stroke-width="2"/><text x="375" y="256" class="body red">ΔQ</text><text x="302" y="303" text-anchor="end" class="body teal">1.10</text><text x="407.5" y="377" class="body mid">1</text>
+<g fill="#18384a"><circle cx="95" cy="350" r="4"/><circle cx="95" cy="235" r="4"/><circle cx="210" cy="235" r="4"/><circle cx="210" cy="350" r="4"/><circle cx="350" cy="350" r="4"/><circle cx="316" cy="228" r="4"/><circle cx="431" cy="228" r="4"/><circle cx="465" cy="350" r="4"/></g>
+<text x="56" y="416" class="body">I 向右，Q 逆时针转到 90° + ΔQ。</text><text x="56" y="447" class="body">竖虚线是理想 Q 方向。倾角已放大示意。</text><line x1="56" y1="471" x2="499" y2="471" stroke="#d3dee3"/><text x="56" y="504" class="label">接收机怎样判决？</text><text x="56" y="534" class="body muted">去除一个公共复增益，再按固定 I/Q 门限判决。</text><text x="56" y="563" class="body muted">斜格表示发射星座的形变。</text>
+<rect x="540" y="121" width="766" height="460" rx="14" fill="white" stroke="#d3dee3"/>
+<text x="565" y="162" class="section">②　同一个角点 (63a, 63a) 的 I 轴投影</text><text x="566" y="202" class="label teal">幅差已校正，残余 ΔQ = 1.5°</text>
+<rect x="950" y="249" width="275" height="23" fill="#e1f3ed"/><line x1="638" y1="261" x2="1267" y2="261" stroke="#728995" stroke-width="2"/><path d="M950 230V288" class="dash"/><circle cx="675" cy="261" r="7" class="ref"/><circle cx="1225" cy="261" r="7" class="ref"/><circle cx="998.20" cy="261" r="8" class="obs"/>
+<text x="675" y="291" class="small mid">61a</text><text x="942" y="306" class="small mid">门限 62a</text><text x="1009" y="238" class="small mid red">62.175a</text><text x="1225" y="291" class="small mid">目标 63a</text>
+<path d="M950 317V326 M950 321H998.20 M998.20 317V326" stroke="#007a70" stroke-width="2" fill="none"/><path d="M998.20 317V326 M998.20 321H1225 M1225 317V326" stroke="#b13d23" stroke-width="2" fill="none"/><text x="981" y="350" text-anchor="end" class="body teal">剩余 0.175a</text><text x="1112" y="350" class="body mid red">偏移 0.825a</text>
+<line x1="566" y1="373" x2="1280" y2="373" stroke="#d3dee3"/><text x="566" y="410" class="label red">Q 路仍高 10%，残余 ΔQ = 1.5°</text>
+<rect x="638" y="455" width="174.5" height="23" fill="#fcece5"/><line x1="638" y1="467" x2="1267" y2="467" stroke="#728995" stroke-width="2"/><path d="M812.5 438V493 M1087.5 438V493" class="dash"/>
+<circle cx="675" cy="467" r="7" class="ref"/><circle cx="950" cy="467" r="7" class="ref"/><circle cx="1225" cy="467" r="7" class="ref"/><circle cx="699.29" cy="467" r="8" class="obs"/><text x="699" y="443" class="small mid red">59.177a</text><text x="675" y="510" class="small mid">59a</text><text x="812.5" y="510" class="small mid">门限 60a</text><text x="950" y="510" class="small mid">61a</text><text x="1087.5" y="510" class="small mid">门限 62a</text><text x="1225" y="510" class="small mid">目标 63a</text><text x="566" y="559" class="body muted">橙点是接收投影。它越过两道门限，I 轴判为 59a。</text>
+<rect x="34" y="598" width="1272" height="60" rx="11" fill="#14394a"/><text x="58" y="635" class="label white">设计含义　｜　幅差校正后，1.5° 残余相差用掉最坏单轴判决余量的 82.5%；保留 10% 幅差时，该角点已越界。</text>
+</svg>

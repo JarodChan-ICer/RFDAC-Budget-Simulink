@@ -2,9 +2,10 @@ function figs=plot_rfdac_results(results)
 % Final receiver constellation first; every auxiliary figure has an init flag.
 setup_rfdac_project();
 if nargin<1, results=evalin('base','results'); end
-c=results.cfg; defaults=init_rfdac_model();
+c=results.cfg; defaults=rfdac_default_config();
 c.Output_Directory=rfdac_output_directory(c.Output_Directory);
-names={'Plot_Constellation','Plot_DPD_Comparison','Plot_LPF_Response','Plot_Waveforms','Plot_Spectra','Plot_Diagnostics'};
+names={'Plot_Constellation','Plot_DPD_Comparison','Plot_DPD_LUT_Selection', ...
+    'Plot_LPF_Response','Plot_Waveforms','Plot_Spectra','Plot_Diagnostics'};
 for k=1:numel(names)
     if ~isfield(c,names{k}), c.(names{k})=defaults.(names{k}); end
 end
@@ -27,7 +28,8 @@ if c.Plot_Constellation
     end
 end
 if c.Plot_LPF_Response
-    f=newfigure(c,'TX and RX reconstruction filter response',[80 80 1000 550]);
+    f=newfigure(c,'LPF response and RX in-band compensation',[80 80 1000 750]);
+    tiledlayout(2,1,'TileSpacing','compact','Padding','compact'); nexttile;
     frequency=results.filters.Frequency;
     rx=freqz(results.filters.RX_FIR,1,frequency,c.Sample_Rate);
     plot(frequency/1e9,20*log10(max(abs(results.filters.Response),1e-8)), ...
@@ -35,6 +37,19 @@ if c.Plot_LPF_Response
     grid on; ylim([-140 5]); xlim([0 min(c.DAC_Sample_Rate,c.Sample_Rate/2)/1e9]);
     xlabel('Frequency (GHz)'); ylabel('Magnitude (dB)'); legend('TX LPF','RX LPF');
     title(sprintf('FIR response: TX order %d / RX order %d',c.LPF_Order,c.RX_LPF_Order));
+    nexttile;
+    if isfield(results,'RX_Equalizer')
+        eq=results.RX_Equalizer; inband=eq.Frequency_Hz<=eq.Bandwidth_Hz;
+        plot(eq.Frequency_Hz(inband)/1e6,20*log10(max(abs(eq.Path_Response(inband)),eps)), ...
+            eq.Frequency_Hz(inband)/1e6,20*log10(max(abs(eq.Response(inband)),eps)),'--', ...
+            eq.Frequency_Hz(inband)/1e6,20*log10(max(abs(eq.Combined_Response(inband)),eps)),'LineWidth',1.3);
+        grid on; xlabel('Baseband frequency (MHz)'); ylabel('Magnitude (dB)');
+        legend('TX/RX LPFs + DAC hold','RX equalizer','Compensated path','Location','best');
+        title(sprintf('RX equalizer %d: in-band ripple %.4f -> %.4f dB; peak gain %.2f dB', ...
+            eq.Enabled,eq.Ripple_Before_dB,eq.Ripple_After_dB,eq.Peak_Gain_dB));
+    else
+        axis off; text(0,.5,'This saved result predates the RX equalizer.');
+    end
     export(f,c,'lpf_response'); figs(end+1,1)=f;
 end
 if c.Plot_Waveforms

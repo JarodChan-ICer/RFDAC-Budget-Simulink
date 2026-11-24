@@ -7,6 +7,7 @@ for clock=0:1
     r=data.results; r.cfg.Output_Directory=folder; plot_rfdac_results(r);
 end
 fields={'Plot_Constellation','Plot_LPF_Response','Plot_Waveforms','Plot_Spectra','Plot_Diagnostics'};
+r.cfg.Plot_DPD_LUT_Selection=false; % legacy saved results may predate trained alphabets
 r.cfg.Output_Directory=fullfile(folder,'plot_switch_checks');
 for k=1:numel(fields), r.cfg.(fields{k})=false; end
 assert(isempty(plot_rfdac_results(r)));

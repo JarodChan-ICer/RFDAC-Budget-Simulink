@@ -81,7 +81,8 @@ for k=1:numel(logs)
     end
 end
 set_param(tx,'Tag','rfdac_evm_v2');
-set_param(m,'Description','RF TX target-EVM calibration, four-phase LO quadrature imbalance and timing jitter.');
+update_rfdac_lo_amplitude_model(m);
+set_param(m,'Description','RF TX target-EVM calibration, four-phase LO phase and amplitude imbalance, and timing jitter.');
 save_system(m);
 fprintf('Updated SLX: target-EVM TX, four-phase LO, streaming jitter and bounded waveform previews.\n');
 end
